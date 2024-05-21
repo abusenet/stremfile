@@ -1,0 +1,52 @@
+{
+  "id": "strem.my.gofileio.add-on",
+  "version": "1.0.0",
+  "name": "GoFile Add-on",
+  "description": "StremFileIO add-on",
+  "logo": "https://gofile.io/dist/img/logo-small-70.png",
+  "behaviorHints": {
+    "adult": true,
+    "p2p": true,
+    "configurable": true,
+    "configurationRequired": false
+  },
+  "resources": [
+    "catalog",
+    "stream"
+  ],
+  "types": [
+    "movie",
+    "series"
+  ],
+  "catalogs": [
+    {
+      "id": "gomovie",
+      "type": "movie",
+      "name": "Go Movies",
+      "metas": [],
+      "extra": [
+        {
+          "name": "genre",
+          "isRequired": false
+        },
+        {
+          "name": "search",
+          "isRequired": false
+        },
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "id": "goseries",
+      "type": "series",
+      "name": "Go Series",
+      "metas": [],
+      "extra": [
+
+      ]
+    }
+  ]
+}

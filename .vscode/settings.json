@@ -1,0 +1,6 @@
+{
+    "files.trimTrailingWhitespace": true,
+    "css.format.spaceAroundSelectorSeparator": true,
+    "javascript.format.insertSpaceAfterConstructor": false,
+    "editor.tabSize": 2
+}
