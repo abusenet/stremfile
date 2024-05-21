@@ -1,11 +1,3 @@
-async function errorHandling(context) {
-  try {
-    return await context.next();
-  } catch (err) {
-    return new Response(`${err.message}\n${err.stack}`, { status: 500 });
-  }
-}
-
 async function cors(context) {
   const { request } = context;
 
@@ -37,4 +29,6 @@ async function cors(context) {
   return response;
 }
 
-export const onRequest = [errorHandling, cors];
+export const onRequest = [
+  cors,
+];

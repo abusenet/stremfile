@@ -1,0 +1,3 @@
+kv_namespaces = [
+  { binding = "STREAMS", id = "1db8aa8264ca429d99003d18f03d6c58" }
+]
