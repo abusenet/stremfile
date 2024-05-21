@@ -4,8 +4,5 @@
   },
   "dependencies": {
     "@ctrl/video-filename-parser": "^5.2.0"
-  },
-  "devDependencies": {
-    "wrangler": "^3.57.1"
   }
 }
