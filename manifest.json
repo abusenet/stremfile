@@ -1,8 +1,8 @@
 {
   "id": "strem.my.gofileio.add-on",
   "version": "1.0.0",
-  "name": "GoFile Add-on",
-  "description": "StremFileIO add-on",
+  "name": "StremFile",
+  "description": "Add-on to stream from GoFile",
   "logo": "https://gofile.io/dist/img/logo-small-70.png",
   "behaviorHints": {
     "adult": true,
