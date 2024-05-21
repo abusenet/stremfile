@@ -24,15 +24,7 @@ export async function onRequest(context) {
   const userAgent = request.headers.get("User-Agent") || "Mozilla/5.0";
   const wt = searchParams.get("wt") || env["WEBSITE_TOKEN"] || WEBSITE_TOKEN;
 
-  if (!params.id.endsWith(".json")) {
-    return new Response({ streams: [] }, {
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-      }
-    });
-  }
-
-  const prefix = `${ params.id.replace(/\.json$/, "") }:`;
+  const prefix = `${ params.id }:`;
 
   const {
     keys,
