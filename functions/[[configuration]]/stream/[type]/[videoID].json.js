@@ -42,13 +42,13 @@ async function GET(request, env) {
   const wt = searchParams.get("wt") || env["WEBSITE_TOKEN"] || WEBSITE_TOKEN;
 
   const [
-    id,
+    videoID,
     type,
     resource,
     configuration,
   ] = pathname.substring(1).split("/").filter(Boolean).reverse();
 
-  const prefix = `${ id }:`;
+  const prefix = `${ videoID.replace(/\.json$/, "") }:`;
 
   const {
     keys,
@@ -130,17 +130,19 @@ async function GET(request, env) {
 async function POST(request, env) {
   const { searchParams, pathname } = new URL(request.url);
   const [
-    videoId,
+    videoID,
     type,
     resource,
     configuration,
   ] = pathname.substring(1).split("/").filter(Boolean).reverse();
 
+  const prefix = `${ videoID.replace(/\.json$/, "") }:`;
+
   const formData = await request.formData();
   const id = formData.get("id");
   const name = formData.get("name");
 
-  env.STREAMS.put(`${videoId}:${id}`, name, {
+  env.STREAMS.put(`${prefix}${id}`, name, {
     metadata: undefined,
   });
 
