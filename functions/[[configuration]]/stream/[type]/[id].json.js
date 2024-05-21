@@ -10,21 +10,34 @@ const BASE_URL = "https://api.gofile.io";
  */
 async function json(endpoint, init = {}) {
   const response = await fetch(`${BASE_URL}${endpoint}`, init);
-  const { status, data } = await response.json();
+  const { status, data }  = await response.json();
   if (status !== "ok") {
+    console.error(status)
     return null;
   }
   return data;
 }
 
-export async function onRequest(context) {
-  const { env, request, params } = context;
-  const { searchParams } = new URL(request.url);
+/**
+ * Gets stream data
+ * @param {Request} request
+ * @param {Object} env
+ * @returns {Promise<Response>}
+ */
+async function GET(request, env) {
+  const { searchParams, pathname } = new URL(request.url);
 
   const userAgent = request.headers.get("User-Agent") || "Mozilla/5.0";
   const wt = searchParams.get("wt") || env["WEBSITE_TOKEN"] || WEBSITE_TOKEN;
 
-  const prefix = `${ params.id }:`;
+  const [
+    id,
+    type,
+    resource,
+    configuration,
+  ] = pathname.substring(1).split("/").filter(Boolean).reverse();
+
+  const prefix = `${ id }:`;
 
   const {
     keys,
@@ -95,6 +108,48 @@ export async function onRequest(context) {
     headers: new Headers({
       "Content-Type": "application/json; charset=utf-8",
     }),
+  });
+}
+
+/**
+ * Adds a new stream
+ * @param {Request} request
+ * @param {Object} env
+ */
+async function POST(request, env) {
+  const { searchParams, pathname } = new URL(request.url);
+  const [
+    videoId,
+    type,
+    resource,
+    configuration,
+  ] = pathname.substring(1).split("/").filter(Boolean).reverse();
+
+  const formData = await request.formData();
+  const id = formData.get("id");
+  const name = formData.get("name");
+
+  env.STREAMS.put(`${videoId}:${id}`, name, {
+    metadata: undefined,
+  });
+
+  return new Response(null, {
+    status: 204,
+  });
+}
+
+export async function onRequest(context) {
+  const { env, request, params } = context;
+
+  if (request.method === "GET") {
+    return GET(request, env);
+  } else if (request.method === "POST") {
+    return POST(request, env);
+  }
+
+  return new Response(null, {
+    status: 405,
+    statusText: "Method Not Allowed",
   });
 };
 
