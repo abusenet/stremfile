@@ -11,42 +11,10 @@
     "configurationRequired": false
   },
   "resources": [
-    "catalog",
     "stream"
   ],
   "types": [
     "movie",
     "series"
-  ],
-  "catalogs": [
-    {
-      "id": "gomovie",
-      "type": "movie",
-      "name": "Go Movies",
-      "metas": [],
-      "extra": [
-        {
-          "name": "genre",
-          "isRequired": false
-        },
-        {
-          "name": "search",
-          "isRequired": false
-        },
-        {
-          "name": "skip",
-          "isRequired": false
-        }
-      ]
-    },
-    {
-      "id": "goseries",
-      "type": "series",
-      "name": "Go Series",
-      "metas": [],
-      "extra": [
-
-      ]
-    }
   ]
 }
