@@ -10,21 +10,11 @@ const BASE_URL = "https://api.gofile.io";
  */
 async function json(endpoint, init = {}) {
   const request = new Request(`${BASE_URL}${endpoint}`, init);
-  const cache = caches.default;
-  let response = await cache.match(request);
-  if (!response) {
-    response = await fetch(request);
-  }
-
+  const response = await fetch(request);
   const { status, data }  = await response.json();
   if (status !== "ok") {
-    console.error(status, response.headers)
+    console.error(status);
     return null;
-  }
-
-  if (request.method === "GET") {
-    const responseToCache = Response.json(data, response);
-    await cache.put(request, responseToCache);
   }
   return data;
 }
