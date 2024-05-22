@@ -121,7 +121,7 @@ async function GET(request, env) {
 }
 
 /**
- * Adds a new stream
+ * Adds a new stream with metadata
  * @param {Request} request
  * @param {Object} env
  */
@@ -134,14 +134,28 @@ async function POST(request, env) {
     configuration,
   ] = pathname.substring(1).split("/").filter(Boolean).reverse();
 
-  const prefix = `${type}:${ videoID.replace(/\.json$/, "") }:`;
+  const id = videoID.replace(/\.json$/, "");
+  const prefix = `${ type }:${ id }:`;
 
   const formData = await request.formData();
-  const id = formData.get("id");
-  const name = formData.get("name");
+  const key = formData.get("key");
+  const value = formData.get("value");
 
-  env.STREAMS.put(`${prefix}${id}`, name, {
-    metadata: undefined,
+  // Get metadata
+  const url = new URL("https://v3-cinemeta.strem.io/meta");
+  url.pathname += `/${ type }/${ id }.json`;
+  const { meta } = await fetch(url).then((r) => r.json());
+  const { name, genres, poster} = meta;
+  const metadata = {
+    type,
+    id,
+    name,
+    genres,
+    poster,
+  }
+
+  env.STREAMS.put(`${ prefix }${ key }`, value, {
+    metadata,
   });
 
   return new Response(null, {
