@@ -1,4 +1,5 @@
-import { filenameParse } from '@ctrl/video-filename-parser';
+import { filenameParse } from "@ctrl/video-filename-parser";
+import { onRequest as fetchMeta } from "../../meta/[type]/[id].json.js";
 
 const WEBSITE_TOKEN = "4fd6sg89d7s6";
 
@@ -21,27 +22,24 @@ async function json(endpoint, init = {}) {
 
 /**
  * Gets stream data
- * @param {Request} request
+ * @param {Object} context
  * @param {Object} env
  * @returns {Promise<Response>}
  */
-async function GET(request, env) {
-  const { searchParams, pathname, href } = new URL(request.url);
+async function GET(context) {
+  const { request, env, params } = context;
+  const { searchParams, href } = new URL(request.url);
+  const { videoID, type } = params;
+
+  console.time(`GET ${ type }/${ videoID }`);
 
   const userAgent = request.headers.get("User-Agent") || "Mozilla/5.0";
   const wt = searchParams.get("wt") || env["WEBSITE_TOKEN"] || WEBSITE_TOKEN;
 
-  const [
-    videoID,
-    type,
-    resource,
-    configuration,
-  ] = pathname.substring(1).split("/").filter(Boolean).reverse();
-
-  const prefix = `${type}:${ videoID.replace(/\.json$/, "") }:`;
+  const prefix = `${type}:${ videoID }:`;
 
   const {
-    keys,
+    keys = [],
     list_complete,
     cursor,
   } = await env.STREAMS.list({
@@ -57,8 +55,8 @@ async function GET(request, env) {
     },
   });
 
-  for (const {name, expiration, metadata} of keys) {
-    const folderId = name.replace(new RegExp(`^${prefix}`), "");
+  for (const { name: key } of keys) {
+    const [ , , folderId ] = key.split(":");
 
     const { childrenIds, children } = await json(`/contents/${folderId}?wt=${wt}`, {
       headers: {
@@ -73,7 +71,7 @@ async function GET(request, env) {
       if (!mimetype || !mimetype.includes("video/")) continue;
 
       const { resolution, sources, videoCodec, edition } = filenameParse(filename);
-      let name = `[Gofile] ${resolution} ${sources[0]}`;
+      let name = `[StremFile] ${resolution} ${sources[0]}`;
       if (filename.includes("HDR") || edition.hdr) {
         name += " HDR";
       }
@@ -95,7 +93,7 @@ async function GET(request, env) {
         url,
         behaviorHints: {
           // Set the stream to be a binge group so next episode will play automatically
-          "bingeGroup": `Gofile-${resolution}`,
+          "bingeGroup": `StremFile-${resolution}`,
           // Set not to be web ready so it will send headers.
           "notWebReady": true,
           "proxyHeaders": {
@@ -113,6 +111,8 @@ async function GET(request, env) {
     }
   }
 
+  console.timeEnd(`GET ${ type }/${ videoID }`);
+
   return new Response(JSON.stringify({ streams }, null, 2), {
     headers: new Headers({
       "Content-Type": "application/json; charset=utf-8",
@@ -122,19 +122,17 @@ async function GET(request, env) {
 
 /**
  * Adds a new stream with metadata
- * @param {Request} request
+ * @param {Object} context
  * @param {Object} env
  */
-async function POST(request, env) {
-  const { searchParams, pathname } = new URL(request.url);
-  const [
-    videoID,
-    type,
-    resource,
-    configuration,
-  ] = pathname.substring(1).split("/").filter(Boolean).reverse();
+async function POST(context) {
+  const { request, env, params } = context;
+  const { videoID, type } = params;
 
-  const id = videoID.replace(/\.json$/, "");
+  console.time(`POST ${ type }/${ videoID }`);
+
+  // TODO: handle series
+  const id = params.id = videoID;
   const prefix = `${ type }:${ id }:`;
 
   const formData = await request.formData();
@@ -142,9 +140,7 @@ async function POST(request, env) {
   const value = formData.get("value");
 
   // Get metadata
-  const url = new URL("https://v3-cinemeta.strem.io/meta");
-  url.pathname += `/${ type }/${ id }.json`;
-  const { meta } = await fetch(url).then((r) => r.json());
+  const { meta } = await fetchMeta(context).then((r) => r.json());
   const { name, genres, poster} = meta;
   const metadata = {
     type,
@@ -158,18 +154,42 @@ async function POST(request, env) {
     metadata,
   });
 
+  console.timeEnd(`POST ${ type }/${ videoID }`);
+
+  return new Response(null, {
+    status: 204,
+  });
+}
+
+async function DELETE(context) {
+  const { request, env, params } = context;
+  const { videoID, type } = params;
+
+  console.time(`DELETE ${ type }/${ videoID }`);
+
+  const prefix = `${ type }:${ videoID }:`;
+  const { keys } = await env.STREAMS.list({ prefix });
+
+  for (const { name: key } of keys) {
+    await env.STREAMS.delete(key);
+  }
+
+  console.timeEnd(`DELETE ${ type }/${ videoID }`);
+
   return new Response(null, {
     status: 204,
   });
 }
 
 export async function onRequest(context) {
-  const { env, request } = context;
+  const { request } = context;
 
   if (request.method === "GET") {
-    return GET(request, env);
+    return GET(context);
   } else if (request.method === "POST") {
-    return POST(request, env);
+    return POST(context);
+  } else if (request.method === "DELETE") {
+    return DELETE(context);
   }
 
   return new Response(null, {

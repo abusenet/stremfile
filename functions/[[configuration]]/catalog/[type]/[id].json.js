@@ -1,10 +1,4 @@
-
-async function json(endpoint, init = {}) {
-  const url = new URL("https://v3-cinemeta.strem.io/meta");
-  url.pathname += endpoint;
-  const response = await fetch(url);
-  return response.json();
-}
+import { onRequest as fetchMeta } from "../../meta/[type]/[id].json.js";
 
 export async function onRequest(context) {
   const { env, params } = context;
@@ -30,7 +24,8 @@ export async function onRequest(context) {
     }
 
     if (!metadata) {
-      const { meta: { name, genres, poster} }= await json(`/${type}/${id}.json`);
+      const { meta } = await fetchMeta(context).then((r) => r.json());
+      const { name, genres, poster } = meta;
       metadata = {
         type,
         id,
