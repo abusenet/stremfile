@@ -7,15 +7,8 @@ async function json(endpoint, init = {}) {
 }
 
 export async function onRequest(context) {
-  const { env, request } = context;
-  const { pathname } = new URL(request.url);
-
-  const [
-    _id,
-    type,
-    _resource,
-    _configuration,
-  ] = pathname.substring(1).split("/").filter(Boolean).reverse();
+  const { env, params } = context;
+  const { type } = params;
 
   const prefix = `${type}:`;
 
