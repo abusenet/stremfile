@@ -11,10 +11,53 @@
     "configurationRequired": false
   },
   "resources": [
+    "catalog",
     "stream"
   ],
   "types": [
     "movie",
     "series"
+  ],
+  "catalogs": [
+    {
+      "id": "to-go-movie",
+      "type": "movie",
+      "name": "To-Go Movies",
+      "metas": [],
+      "extra": [
+        {
+          "name": "genre",
+          "isRequired": false
+        },
+        {
+          "name": "search",
+          "isRequired": false
+        },
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "id": "to-go-series",
+      "type": "series",
+      "name": "To-Go Series",
+      "metas": [],
+      "extra": [
+        {
+          "name": "genre",
+          "isRequired": false
+        },
+        {
+          "name": "search",
+          "isRequired": false
+        },
+        {
+          "name": "skip",
+          "isRequired": false
+        }
+      ]
+    }
   ]
 }

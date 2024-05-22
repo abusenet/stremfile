@@ -38,7 +38,7 @@ async function GET(request, env) {
     configuration,
   ] = pathname.substring(1).split("/").filter(Boolean).reverse();
 
-  const prefix = `${ videoID.replace(/\.json$/, "") }:`;
+  const prefix = `${type}:${ videoID.replace(/\.json$/, "") }:`;
 
   const {
     keys,
@@ -134,7 +134,7 @@ async function POST(request, env) {
     configuration,
   ] = pathname.substring(1).split("/").filter(Boolean).reverse();
 
-  const prefix = `${ videoID.replace(/\.json$/, "") }:`;
+  const prefix = `${type}:${ videoID.replace(/\.json$/, "") }:`;
 
   const formData = await request.formData();
   const id = formData.get("id");
