@@ -26,7 +26,7 @@ async function json(endpoint, init = {}) {
  * @returns {Promise<Response>}
  */
 async function GET(request, env) {
-  const { searchParams, pathname } = new URL(request.url);
+  const { searchParams, pathname, href } = new URL(request.url);
 
   const userAgent = request.headers.get("User-Agent") || "Mozilla/5.0";
   const wt = searchParams.get("wt") || env["WEBSITE_TOKEN"] || WEBSITE_TOKEN;
@@ -82,10 +82,17 @@ async function GET(request, env) {
       }
       name += ` ${videoCodec}`;
 
+      let url = link;
+      // Only native StremIO apps send Cookie header, so we point web
+      // clients to our proxied content instead.
+      if (!userAgent.includes("Stremio/")) {
+        url = href.replace(/\.json$/, `/${filename}`);
+      }
+
       streams.push({
         name,
         description: `${filename}\n${prettyBytes(size)}`,
-        url: link,
+        url,
         behaviorHints: {
           // Set the stream to be a binge group so next episode will play automatically
           "bingeGroup": `Gofile-${resolution}`,
@@ -93,6 +100,7 @@ async function GET(request, env) {
           "notWebReady": true,
           "proxyHeaders": {
             "request": {
+              "Content-Type": mimetype,
               "Cookie": `accountToken=${account.token}`,
               "User-Agent": userAgent,
             },
@@ -142,7 +150,7 @@ async function POST(request, env) {
 }
 
 export async function onRequest(context) {
-  const { env, request, params } = context;
+  const { env, request } = context;
 
   if (request.method === "GET") {
     return GET(request, env);
