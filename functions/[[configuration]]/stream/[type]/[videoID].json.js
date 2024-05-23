@@ -1,9 +1,8 @@
 import { filenameParse } from "@ctrl/video-filename-parser";
 import { onRequest as fetchMeta } from "../../meta/[type]/[id].json.js";
 
-const WEBSITE_TOKEN = "4fd6sg89d7s6";
-
 const BASE_URL = "https://api.gofile.io";
+const WEBSITE_TOKEN = "4fd6sg89d7s6";
 
 /**
  * @param {string} endpoint
@@ -55,15 +54,36 @@ async function GET(context) {
     },
   });
 
-  for (const { name: key } of keys) {
-    const [ , , folderId ] = key.split(":");
+  for (const { name: key, metadata } of keys) {
+    // Retrieves folder data from database.
+    let folder;
+    try {
+      folder = await env.STREAMS.get(key, { type: "json" });
+    } catch (_error) {
+      // Value can be text, so we ignore it.
+    }
 
-    const { childrenIds, children } = await json(`/contents/${folderId}?wt=${wt}`, {
-      headers: {
-        "Authorization": `Bearer ${account.token}`,
-        "User-Agent": userAgent,
-      },
-    });
+    if (!folder) {
+      const [ , , folderId ] = key.split(":");
+      // No cache, fetch from API.
+      folder = await json(`/contents/${folderId}?wt=${wt}`, {
+        headers: {
+          "Authorization": `Bearer ${account.token}`,
+          "User-Agent": userAgent,
+        },
+      });
+      if (folder) {
+        await env.STREAMS.put(key, JSON.stringify(folder), {
+          metadata,
+        });
+      }
+    }
+
+    if (!folder) {
+      continue;
+    }
+
+    const { childrenIds, children } = folder;
 
     for (const childId of childrenIds) {
       const { name: filename, type, mimetype, size, md5, link } = children[childId];
@@ -201,12 +221,8 @@ export async function onRequest(context) {
 async function getAccount(init = {}) {
   const headers = new Headers(init.headers);
 
-  const { id, token } = await json("/accounts", {
+  return json("/accounts", {
     method: "POST",
-    headers,
-  });
-  headers.set("Authorization", `Bearer ${token}`);
-  return json(`/accounts/${id}`, {
     headers,
   });
 }
