@@ -55,29 +55,14 @@ async function GET(context) {
   });
 
   for (const { name: key, metadata } of keys) {
-    // Retrieves folder data from database.
-    let folder;
-    try {
-      folder = await env.STREAMS.get(key, { type: "json" });
-    } catch (_error) {
-      // Value can be text, so we ignore it.
-    }
-
-    if (!folder) {
-      const [ , , folderId ] = key.split(":");
-      // No cache, fetch from API.
-      folder = await json(`/contents/${folderId}?wt=${wt}`, {
-        headers: {
-          "Authorization": `Bearer ${account.token}`,
-          "User-Agent": userAgent,
-        },
-      });
-      if (folder) {
-        await env.STREAMS.put(key, JSON.stringify(folder), {
-          metadata,
-        });
-      }
-    }
+    const [ , , folderId ] = key.split(":");
+    // No cache, fetch from API.
+    const folder = await json(`/contents/${folderId}?wt=${wt}`, {
+      headers: {
+        "Authorization": `Bearer ${account.token}`,
+        "User-Agent": userAgent,
+      },
+    });
 
     if (!folder) {
       continue;
