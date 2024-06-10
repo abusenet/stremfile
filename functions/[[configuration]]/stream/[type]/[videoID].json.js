@@ -172,7 +172,7 @@ async function POST(context) {
     poster,
   }
 
-  env.STREAMS.put(`${ prefix }${ folder }`, JSON.stringify(file), {
+  await env.STREAMS.put(`${ prefix }${ folder }`, JSON.stringify(file), {
     metadata,
   });
 
