@@ -1,5 +1,6 @@
 import { filenameParse } from "@ctrl/video-filename-parser";
 import { onRequest as fetchMeta } from "../../meta/[type]/[id].json.js";
+import { imdb } from "../../catalog/[type]/[id]/search=[q].json.js";
 
 const BASE_URL = "https://api.gofile.io";
 const WEBSITE_TOKEN = "4fd6sg89d7s6";
@@ -132,17 +133,33 @@ async function GET(context) {
  */
 async function POST(context) {
   const { request, env, params } = context;
-  const { videoID, type } = params;
+  let { videoID, type } = params;
 
   console.time(`POST ${ type }/${ videoID }`);
 
+  const file = await request.json();
+  // Incoming file name is in the format of folder/filename
+  const [folder, filename] = file.name.split("/");
+  // But we only need the filename
+  file.name = filename;
+
   // TODO: handle series
+  // TODO: handle anime
+  if (!videoID.startsWith("tt")) {
+    const { title, year } = filenameParse(filename);
+    // Retrieve the IMDb ID from IMDB API
+    const results = await imdb(`${title} (${year})`, { qid: type });
+    videoID = results[0]?.id;
+  }
+
+  if (!videoID) {
+    return new Response(null, {
+      status: 204,
+    });
+  }
+
   const id = params.id = videoID;
   const prefix = `${ type }:${ id }:`;
-
-  const formData = await request.formData();
-  const key = formData.get("key");
-  const value = formData.get("value");
 
   // Get metadata
   const { meta } = await fetchMeta(context).then((r) => r.json());
@@ -155,7 +172,7 @@ async function POST(context) {
     poster,
   }
 
-  env.STREAMS.put(`${ prefix }${ key }`, value, {
+  env.STREAMS.put(`${ prefix }${ folder }`, JSON.stringify(file), {
     metadata,
   });
 
