@@ -86,17 +86,10 @@ async function GET(context) {
       }
       name += ` ${videoCodec}`;
 
-      let url = link;
-      // Only native StremIO apps send Cookie header, so we point web
-      // clients to our proxied content instead.
-      if (!userAgent.includes("Stremio/")) {
-        url = href.replace(/\.json$/, `/${filename}`);
-      }
-
       streams.push({
         name,
         description: `${filename}\n${prettyBytes(size)}`,
-        url,
+        url: link,
         behaviorHints: {
           // Set the stream to be a binge group so next episode will play automatically
           "bingeGroup": `StremFile-${resolution}`,
