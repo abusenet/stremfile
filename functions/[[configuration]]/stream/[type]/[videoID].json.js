@@ -2,24 +2,6 @@ import { filenameParse } from "@ctrl/video-filename-parser";
 import { onRequest as fetchMeta } from "../../meta/[type]/[id].json.js";
 import { imdb } from "../../catalog/[type]/[id]/search=[q].json.js";
 
-const BASE_URL = "https://api.gofile.io";
-const WEBSITE_TOKEN = "4fd6sg89d7s6";
-
-/**
- * @param {string} endpoint
- * @param {RequestInit} init
- */
-async function json(endpoint, init = {}) {
-  const request = new Request(`${BASE_URL}${endpoint}`, init);
-  const response = await fetch(request);
-  const { status, data }  = await response.json();
-  if (status !== "ok") {
-    console.error(status);
-    return null;
-  }
-  return data;
-}
-
 /**
  * Gets stream data
  * @param {Object} context
@@ -28,13 +10,10 @@ async function json(endpoint, init = {}) {
  */
 async function GET(context) {
   const { request, env, params } = context;
-  const { searchParams, href } = new URL(request.url);
+  const { href } = new URL(request.url);
   const { videoID, type } = params;
 
   console.time(`GET ${ type }/${ videoID }`);
-
-  const userAgent = request.headers.get("User-Agent") || "Mozilla/5.0";
-  const wt = searchParams.get("wt") || env["WEBSITE_TOKEN"] || WEBSITE_TOKEN;
 
   const prefix = `${type}:${ videoID }:`;
 
@@ -44,70 +23,54 @@ async function GET(context) {
     cursor,
   } = await env.STREAMS.list({
     prefix,
-    limit: 1000, // default
+    limit: 1000, // default, max allowed
     cursor: "",
   });
 
   const streams = [];
-  const account = await getAccount({
-    headers: {
-      "User-Agent": userAgent,
-    },
-  });
 
   for (const { name: key, metadata } of keys) {
-    const [ , , folderId ] = key.split(":");
-    // No cache, fetch from API.
-    const folder = await json(`/contents/${folderId}?wt=${wt}`, {
-      headers: {
-        "Authorization": `Bearer ${account.token}`,
-        "User-Agent": userAgent,
-      },
-    });
-
-    if (!folder) {
+    const [ , , folderName ] = key.split(":");
+    if (!folderName) {
       continue;
     }
 
-    const { childrenIds, children } = folder;
+    const {
+      name: filename,
+      size: videoSize = 0,
+      type: mimetype = "video/webm",
+    } = await env.STREAMS.get(key, { type: "json" });
 
-    for (const childId of childrenIds) {
-      const { name: filename, type, mimetype, size, md5, link } = children[childId];
-      if (type !== "file") continue;
-      if (!mimetype || !mimetype.includes("video/")) continue;
-
-      const { resolution, sources, videoCodec, edition } = filenameParse(filename);
-      let name = `[StremFile] ${resolution} ${sources[0]}`;
-      if (filename.includes("HDR") || edition.hdr) {
-        name += " HDR";
-      }
-      if (filename.includes("DV") || edition.dolbyVision) {
-        name += " DV";
-      }
+    const { resolution, sources, videoCodec, edition } = filenameParse(filename.replace("H.26", "H26"));
+    let name = `[StremFile] ${resolution} ${sources[0]}`;
+    if (filename.includes("HDR") || edition.hdr) {
+      name += " HDR";
+    }
+    if (filename.includes("DV") || edition.dolbyVision) {
+      name += " DV";
+    }
+    if (videoCodec) {
       name += ` ${videoCodec}`;
+    }
 
-      streams.push({
-        name,
-        description: `${filename}\n${prettyBytes(size)}`,
-        url: link,
-        behaviorHints: {
-          // Set the stream to be a binge group so next episode will play automatically
-          "bingeGroup": `StremFile-${resolution}`,
-          // Set not to be web ready so it will send headers.
-          "notWebReady": true,
-          "proxyHeaders": {
-            "request": {
-              "Content-Type": mimetype,
-              "Cookie": `accountToken=${account.token}`,
-              "User-Agent": userAgent,
-            },
+    streams.push({
+      name,
+      description: `${filename}\n${prettyBytes(videoSize)}`,
+      url: href.replace(/\.json$/, `/${folderName}/${filename}`),
+      behaviorHints: {
+        // Set the stream to be a binge group so next episode will play automatically
+        "bingeGroup": `StremFile-${resolution}`,
+        // Set not to be web ready so it will send headers.
+        "notWebReady": true,
+        "proxyHeaders": {
+          "request": {
+            "Content-Type": mimetype,
           },
         },
-        videoHash: md5,
-        videoSize: size,
-        filename,
-      });
-    }
+      },
+      videoSize,
+      filename,
+    });
   }
 
   console.timeEnd(`GET ${ type }/${ videoID }`);
@@ -212,15 +175,6 @@ export async function onRequest(context) {
     statusText: "Method Not Allowed",
   });
 };
-
-async function getAccount(init = {}) {
-  const headers = new Headers(init.headers);
-
-  return json("/accounts", {
-    method: "POST",
-    headers,
-  });
-}
 
 function prettyBytes(size) {
   var i = size == 0 ? 0 : Math.floor(Math.log(size) / Math.log(1024));
