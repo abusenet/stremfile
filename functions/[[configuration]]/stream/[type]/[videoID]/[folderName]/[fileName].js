@@ -34,7 +34,7 @@ export async function onRequest(context) {
   const userAgent = request.headers.get("User-Agent") || "Mozilla/5.0";
   const wt = searchParams.get("wt") || env["WEBSITE_TOKEN"] || WEBSITE_TOKEN;
 
-  const [ folderName, fileName ]  = params.pathname;
+  const { folderName, fileName }  = params;
 
   const account = await getAccount({
     headers: {
