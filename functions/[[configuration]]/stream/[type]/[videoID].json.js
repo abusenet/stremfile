@@ -2,6 +2,8 @@ import { filenameParse } from "@ctrl/video-filename-parser";
 import { onRequest as fetchMeta } from "../../meta/[type]/[id].json.js";
 import { imdb } from "../../catalog/[type]/[id]/search=[q].json.js";
 
+import { onRequest as fetchStream } from "./[videoID]/[folderName]/[fileName].js";
+
 /**
  * Gets stream data
  * @param {Object} context
@@ -35,11 +37,21 @@ async function GET(context) {
       continue;
     }
 
+    // Gets the file data from the KV. It can be partial or full.
+    const file = await env.STREAMS.get(key, { type: "json" });
+    // Fetches the stream data from the API
+    params.folderName = folderName;
+    params.fileName = file.name;
+    const response = await fetchStream(context);
+    const cookie = response.headers.get("Set-Cookie")?.split(";")[0];
+    Object.assign(file, await response.json());
+
     const {
       name: filename,
-      size: videoSize = 0,
+      size: videoSize,
       type: mimetype = "video/webm",
-    } = await env.STREAMS.get(key, { type: "json" });
+      location,
+    } = file;
 
     const { resolution, sources, videoCodec, edition } = filenameParse(filename.replace("H.26", "H26"));
     let name = `[StremFile] ${resolution} ${sources[0]}`;
@@ -56,15 +68,19 @@ async function GET(context) {
     streams.push({
       name,
       description: `${filename}\n${prettyBytes(videoSize)}`,
-      url: href.replace(/\.json$/, `/${folderName}/${filename}`),
+      url: location,
       behaviorHints: {
         // Set the stream to be a binge group so next episode will play automatically
-        "bingeGroup": `StremFile-${resolution}`,
+        bingeGroup: `StremFile-${resolution}`,
         // Set not to be web ready so it will send headers.
-        "notWebReady": true,
-        "proxyHeaders": {
-          "request": {
-            "Content-Type": mimetype,
+        notWebReady: true,
+        proxyHeaders: {
+          request: {
+            cookie,
+          },
+          response: {
+            "content-length": videoSize,
+            "content-type": mimetype,
           },
         },
       },

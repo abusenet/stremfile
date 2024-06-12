@@ -19,13 +19,9 @@ async function json(endpoint, init = {}) {
 export async function onRequest(context) {
   const { env, request, params } = context;
 
-  if (request.method === "OPTIONS") {
+  if (request.method !== "GET") {
     return new Response(null, {
       status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-      },
     });
   }
 
@@ -34,7 +30,7 @@ export async function onRequest(context) {
   const userAgent = request.headers.get("User-Agent") || "Mozilla/5.0";
   const wt = searchParams.get("wt") || env["WEBSITE_TOKEN"] || WEBSITE_TOKEN;
 
-  const { folderName, fileName }  = params;
+  const { type, videoID, folderName, fileName }  = params;
 
   const account = await getAccount({
     headers: {
@@ -42,30 +38,48 @@ export async function onRequest(context) {
     },
   });
 
-  const cookie = `accountToken=${account.token};path=/;domain=gofile.io;SameSite=Lax;Secure`;
+  const cookie = `accountToken=${account.token};path=/;domain=gofile.io;SameSite=Lax;Secure;`;
 
-  const folder = await json(`/contents/${folderName}?wt=${wt}`, {
-    headers: {
-      "Authorization": `Bearer ${account.token}`,
-      "User-Agent": userAgent,
-    },
-  });
+  const key = `${type}:${videoID}:${folderName}`;
+  const {
+    value: file = {},
+    metadata,
+  } = await env.STREAMS.getWithMetadata(key, { type: "json" });
 
-  const { childrenIds, children } = folder;
-  let id = childrenIds.find((id) => children[id].name === fileName);
+  // Populates missing file data from the API
+  if (!file.location) {
+    const folder = await json(`/contents/${folderName}?wt=${wt}`, {
+      headers: {
+        "Authorization": `Bearer ${account.token}`,
+        "User-Agent": userAgent,
+      },
+    });
 
-  if (!id) {
-    return new Response(null, { status: 404 });
+    const { childrenIds, children } = folder;
+    let id = childrenIds.find((id) => children[id].name === fileName);
+
+    if (!id) {
+      return new Response(null, { status: 404 });
+    }
+
+    let { name, mimetype, size, md5, link } = children[id];
+
+    if (name.endsWith(".mkv") || mimetype === "video/x-matroska") {
+      mimetype = "video/webm";
+    }
+
+    file.md5 = md5;
+    file.type = mimetype;
+    file.size = size;
+    file.location = link;
+
+    await env.STREAMS.put(key, JSON.stringify(file), { metadata });
   }
 
-  const { name, mimetype, size, md5, link } = children[id];
-
-  // TODO: Upserts the child into KV
-
-  return new Response(null, {
+  return Response.json(file, {
     status: 302,
     headers: {
-      "Location": link,
+      "Location": file.location,
       "Set-Cookie": cookie,
     },
   });
