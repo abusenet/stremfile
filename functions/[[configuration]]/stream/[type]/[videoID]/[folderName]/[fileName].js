@@ -26,61 +26,68 @@ export async function onRequest(context) {
   }
 
   const { searchParams } = new URL(request.url);
+  const headers = new Headers(request.headers);
 
-  const userAgent = request.headers.get("User-Agent") || "Mozilla/5.0";
+  const userAgent = headers.get("User-Agent") || "Mozilla/5.0";
+  // Requests can contain the token in the cookie.
+  let cookie = headers.get("Cookie");
   const wt = searchParams.get("wt") || env["WEBSITE_TOKEN"] || WEBSITE_TOKEN;
 
-  const { type, videoID, folderName, fileName }  = params;
-
-  const account = await getAccount({
-    headers: {
-      "User-Agent": userAgent,
-    },
-  });
-
-  const cookie = `accountToken=${account.token};path=/;domain=gofile.io;SameSite=Lax;Secure;`;
-
-  const key = `${type}:${videoID}:${folderName}`;
-  const {
-    value: file = {},
-    metadata,
-  } = await env.STREAMS.getWithMetadata(key, { type: "json" });
-
-  // Populates missing file data from the API
-  if (!file.location) {
-    const folder = await json(`/contents/${folderName}?wt=${wt}`, {
+  // Only creates an account if the token is not provided
+  if (!cookie) {
+    const account = await getAccount({
       headers: {
-        "Authorization": `Bearer ${account.token}`,
         "User-Agent": userAgent,
       },
     });
 
-    const { childrenIds, children } = folder;
-    let id = childrenIds.find((id) => children[id].name === fileName);
-
-    if (!id) {
-      return new Response(null, { status: 404 });
-    }
-
-    let { name, mimetype, size, md5, link } = children[id];
-
-    if (name.endsWith(".mkv") || mimetype === "video/x-matroska") {
-      mimetype = "video/webm";
-    }
-
-    file.md5 = md5;
-    file.type = mimetype;
-    file.size = size;
-    file.location = link;
-
-    await env.STREAMS.put(key, JSON.stringify(file), { metadata });
+    cookie = `accountToken=${account.token}`;
   }
+
+  const token = cookie.split("=")[1];
+
+  const { type, videoID, folderName, fileName }  = params;
+
+  const key = `${type}:${videoID}:${folderName}`;
+  const {
+    value: file = { name: fileName },
+    metadata,
+  } = await env.STREAMS.getWithMetadata(key, { type: "json" });
+
+  // Populates missing file data from the API
+  const folder = await json(`/contents/${folderName}?wt=${wt}`, {
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "User-Agent": userAgent,
+    },
+  });
+
+  const { childrenIds, children } = folder;
+  let id = childrenIds.find((id) => children[id].name === fileName);
+
+  if (!id) {
+    return new Response(null, { status: 404 });
+  }
+
+  let { name, mimetype, size, md5, link, createTime } = children[id];
+
+  if (name.endsWith(".mkv") || mimetype === "video/x-matroska") {
+    mimetype = "video/webm";
+  }
+
+  file.md5 = md5;
+  file.type = mimetype;
+  file.size = size;
+  file.location = link;
+  file.lastModified = createTime * 1000;
+
+  await env.STREAMS.put(key, JSON.stringify(file), { metadata });
 
   return Response.json(file, {
     status: 302,
     headers: {
       "Location": file.location,
-      "Set-Cookie": cookie,
+      "Set-Cookie": `${cookie};path=/;domain=gofile.io;SameSite=Lax;Secure`,
     },
   });
 }

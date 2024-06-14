@@ -30,6 +30,7 @@ async function GET(context) {
   });
 
   const streams = [];
+  let cookie = "";
 
   for (const { name: key, metadata } of keys) {
     const [ , , folderName ] = key.split(":");
@@ -42,8 +43,16 @@ async function GET(context) {
     // Fetches the stream data from the API
     params.folderName = folderName;
     params.fileName = file.name;
+
+    const headers = new Headers(request.headers);
+    headers.set("Cookie", cookie);
+    context.request = new Request(request, {
+      headers,
+    });
+
+    // Fetch the stream data
     const response = await fetchStream(context);
-    const cookie = response.headers.get("Set-Cookie")?.split(";")[0];
+    cookie = response.headers.get("Set-Cookie")?.split(";")[0];
     Object.assign(file, await response.json());
 
     const {
@@ -79,7 +88,6 @@ async function GET(context) {
             cookie,
           },
           response: {
-            "content-length": videoSize,
             "content-type": mimetype,
           },
         },
