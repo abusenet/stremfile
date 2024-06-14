@@ -104,13 +104,19 @@ export async function onRequest(context) {
 
   await env.STREAMS.put(key, JSON.stringify(file));
 
+  const range = headers.get("Range");
+  headers = new Headers({
+    "Cookie": cookie,
+    "User-Agent": userAgent,
+  });
+
+  if (range) {
+    headers.set("Range", range);
+  }
+
   const response = await fetch(file.location, {
     method,
-    headers: {
-      "Cookie": cookie,
-      "Range": headers.get("Range"),
-      "User-Agent": userAgent,
-    },
+    headers,
   });
 
   headers = new Headers(response.headers);
