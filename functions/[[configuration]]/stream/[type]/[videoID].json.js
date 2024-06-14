@@ -27,7 +27,6 @@ async function GET(context) {
   });
 
   const streams = [];
-  let cookie = "";
 
   for (const { name: key } of keys) {
     const [ , , folderName ] = key.split(":");
@@ -41,17 +40,6 @@ async function GET(context) {
     params.folderName = folderName;
     params.fileName = file.name;
 
-    const headers = new Headers(request.headers);
-    headers.set("Cookie", cookie);
-    context.request = new Request(request, {
-      headers,
-    });
-
-    // Fetch the stream data
-    const response = await fetchStream(context);
-    cookie = response.headers.get("Set-Cookie")?.split(";")[0];
-    Object.assign(file, await response.json());
-
     const {
       name: filename,
       size: videoSize,
@@ -59,7 +47,13 @@ async function GET(context) {
       location,
     } = file;
 
-    const { resolution, sources, videoCodec, edition } = filenameParse(filename.replace("H.26", "H26"));
+    const {
+      resolution,
+      sources,
+      videoCodec,
+      edition,
+    } = filenameParse(filename.replace("H.26", "H26"));
+
     let name = `[StremFile] ${resolution} ${sources[0]}`;
     if (filename.includes("HDR") || edition.hdr) {
       name += " HDR";
@@ -74,16 +68,13 @@ async function GET(context) {
     streams.push({
       name,
       description: `${filename}\n${prettyBytes(videoSize)}`,
-      url: location,
+      url: href.replace(/\.json$/, `/${folderName}/${filename}`),
       behaviorHints: {
         // Set the stream to be a binge group so next episode will play automatically
         bingeGroup: `StremFile-${resolution}`,
         // Set not to be web ready so it will send headers.
         notWebReady: true,
         proxyHeaders: {
-          request: {
-            cookie,
-          },
           response: {
             "content-type": mimetype,
           },

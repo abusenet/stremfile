@@ -22,35 +22,17 @@ async function json(endpoint, init = {}) {
 export async function onRequest(context) {
   const { env, request, params } = context;
 
-  if (request.method !== "GET") {
+  let { method, headers, url } = request;
+
+  if (method !== "GET") {
     return new Response(null, {
       status: 204,
     });
   }
 
-  const { searchParams } = new URL(request.url);
-  const headers = new Headers(request.headers);
-
-  const userAgent = headers.get("User-Agent") || "Mozilla/5.0";
-  // Requests can contain the token in the cookie.
-  let cookie = headers.get("Cookie");
-  const wt = searchParams.get("wt") || env["WEBSITE_TOKEN"] || WEBSITE_TOKEN;
-
-  // Only creates an account if the token is not provided
-  if (!cookie) {
-    const account = await getAccount({
-      headers: {
-        "User-Agent": userAgent,
-      },
-    });
-
-    cookie = `accountToken=${account.token}`;
-  }
-
-  const token = cookie.split("=")[1];
-
   let { type, videoID, folderName, fileName }  = params;
   fileName = decodeURIComponent(fileName);
+  const file = { name: fileName };
 
   // TODO: handle series
   // TODO: handle anime
@@ -67,15 +49,34 @@ export async function onRequest(context) {
     });
   }
 
-  params.id = videoID;
+  const { pathname, searchParams } = new URL(url);
+  headers = new Headers(headers);
+
+  const userAgent = headers.get("User-Agent") || "Mozilla/5.0";
+  // Requests can contain the token in the cookie for this path.
+  let cookie = headers.get("Cookie");
+  const wt = searchParams.get("wt") || env["WEBSITE_TOKEN"] || WEBSITE_TOKEN;
+
+  let cacheControl;
+  // Only creates an account if the token is not provided
+  if (!cookie) {
+    const account = await getAccount({
+      headers: {
+        "User-Agent": userAgent,
+      },
+    });
+
+    cookie = `accountToken=${account.token}`;
+    cacheControl = "no-cache";
+  }
 
   const key = `${type}:${videoID}:${folderName}`;
-  const file = { name: fileName };
 
   // Populates missing file data from the API
-  const folder = await json(`/contents/${folderName}?wt=${wt}`, {
+  const folder = await getFolder(`${folderName}?wt=${wt}`, {
     headers: {
-      "Authorization": `Bearer ${token}`,
+      "Authorization": cookie.replace("accountToken=", "Bearer "),
+      "Cache-Control": cacheControl,
       "User-Agent": userAgent,
     },
   });
@@ -103,12 +104,21 @@ export async function onRequest(context) {
 
   await env.STREAMS.put(key, JSON.stringify(file));
 
-  return Response.json(file, {
-    status: 302,
+  const response = await fetch(file.location, {
+    method,
     headers: {
-      "Location": file.location,
-      "Set-Cookie": `${cookie};path=/;domain=gofile.io;SameSite=Lax;Secure`,
+      "Cookie": cookie,
+      "Range": headers.get("Range"),
+      "User-Agent": userAgent,
     },
+  });
+
+  headers = new Headers(response.headers);
+  headers.set("Set-Cookie", `${cookie};path=${pathname};SameSite=None;Secure`);
+
+  return new Response(response.body, {
+    status: response.status,
+    headers,
   });
 }
 
@@ -119,4 +129,39 @@ async function getAccount(init = {}) {
     method: "POST",
     headers,
   });
+}
+
+async function getFolder(name, init = {}) {
+  const url = new URL(`${BASE_URL}/contents/${name}`);
+  const headers = new Headers(init.headers);
+  const cacheControl = headers.get("Cache-Control");
+  const cache = caches.default;
+
+  let response;
+  if (cacheControl !== "no-cache") {
+    response = await cache.match(url);
+  }
+
+  if (!response) {
+    console.log("fetching folder", cacheControl);
+    response = await fetch(url, init);
+
+    const { status, data }  = await response.json();
+    if (status !== "ok") {
+      console.error(status);
+      return null;
+    }
+
+    response = Response.json({ status, data }, {
+      headers: {
+        // Must set some type of duration for CF to cache.
+        "Cache-Control": `public, max-age=${60 * 60 * 24}`,
+      },
+    });
+
+    await cache.put(url, response.clone());
+  }
+
+  const { data }  = await response.json();
+  return data;
 }
