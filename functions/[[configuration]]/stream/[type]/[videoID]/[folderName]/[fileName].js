@@ -50,6 +50,7 @@ export async function onRequest(context) {
   const token = cookie.split("=")[1];
 
   let { type, videoID, folderName, fileName }  = params;
+  fileName = decodeURIComponent(fileName);
 
   // TODO: handle series
   // TODO: handle anime
