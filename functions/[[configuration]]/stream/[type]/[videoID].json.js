@@ -10,7 +10,8 @@ import { onRequest as fetchStream } from "./[videoID]/[folderName]/[fileName].js
 async function GET(context) {
   const { request, env, params } = context;
   const { href } = new URL(request.url);
-  const { videoID, type } = params;
+  let { videoID, type } = params;
+  videoID = decodeURIComponent(videoID);
 
   console.time(`GET ${ type }/${ videoID }`);
 
@@ -29,7 +30,7 @@ async function GET(context) {
   const streams = [];
 
   for (const { name: key } of keys) {
-    const [ , , folderName ] = key.split(":");
+    const [folderName ] = key.split(":").reverse();
     if (!folderName) {
       continue;
     }

@@ -30,17 +30,27 @@ export async function onRequest(context) {
     });
   }
 
-  let { type, videoID, folderName, fileName }  = params;
+  let { type, videoID, folderName, fileName } = params;
+  videoID = decodeURIComponent(videoID);
+  folderName = decodeURIComponent(folderName);
   fileName = decodeURIComponent(fileName);
+
+  const isTv = type === "series";
+
   const file = { name: fileName };
 
-  // TODO: handle series
   // TODO: handle anime
   if (!videoID.startsWith("tt")) {
-    const { title, year } = filenameParse(fileName);
+    const {
+      title, year,
+      seasons, episodeNumbers,
+    } = filenameParse(fileName, isTv);
     // Retrieve the IMDb ID from IMDB API
     const results = await imdb(`${title} (${year})`, { qid: type });
     videoID = results[0]?.id;
+    if (isTv) {
+      videoID += `:${seasons[0]}:${episodeNumbers[0]}`;
+    }
   }
 
   if (!videoID) {
@@ -149,7 +159,6 @@ async function getFolder(name, init = {}) {
   }
 
   if (!response) {
-    console.log("fetching folder", cacheControl);
     response = await fetch(url, init);
 
     const { status, data }  = await response.json();
