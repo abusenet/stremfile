@@ -79,7 +79,9 @@ export async function onRequest(context) {
   file.type = mimetype;
   file.size = size;
   file.location = link;
-  file.lastModified = createTime * 1000;
+  if (!file.lastModified) {
+    file.lastModified = createTime * 1000;
+  }
 
   await env.STREAMS.put(key, JSON.stringify(file), { metadata });
 
