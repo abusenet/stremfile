@@ -24,6 +24,10 @@ export async function onRequest(context) {
     }
 
     if (!metadata) {
+      const catalogId = params.id;
+      // Metadata endpoint uses video ID instead.
+      params.id = id;
+
       const { meta } = await fetchMeta(context).then((r) => r.json());
       const { name, genres, poster } = meta;
       metadata = {
@@ -38,6 +42,9 @@ export async function onRequest(context) {
       await env.STREAMS.put(key, value, {
         metadata,
       });
+
+      // Reset the ID
+      params.id = catalogId;
     }
 
     metas.push(metadata);

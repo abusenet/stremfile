@@ -1,3 +1,6 @@
+import { filenameParse } from "@ctrl/video-filename-parser";
+import { imdb } from "../../../../catalog/[type]/[id]/search=[q].json.js";
+
 const BASE_URL = "https://api.gofile.io";
 const WEBSITE_TOKEN = "4fd6sg89d7s6";
 
@@ -46,13 +49,27 @@ export async function onRequest(context) {
 
   const token = cookie.split("=")[1];
 
-  const { type, videoID, folderName, fileName }  = params;
+  let { type, videoID, folderName, fileName }  = params;
+
+  // TODO: handle series
+  // TODO: handle anime
+  if (!videoID.startsWith("tt")) {
+    const { title, year } = filenameParse(fileName);
+    // Retrieve the IMDb ID from IMDB API
+    const results = await imdb(`${title} (${year})`, { qid: type });
+    videoID = results[0]?.id;
+  }
+
+  if (!videoID) {
+    return new Response(null, {
+      status: 404,
+    });
+  }
+
+  params.id = videoID;
 
   const key = `${type}:${videoID}:${folderName}`;
-  const {
-    value: file = { name: fileName },
-    metadata,
-  } = await env.STREAMS.getWithMetadata(key, { type: "json" });
+  const file = { name: fileName };
 
   // Populates missing file data from the API
   const folder = await json(`/contents/${folderName}?wt=${wt}`, {
@@ -83,7 +100,7 @@ export async function onRequest(context) {
     file.lastModified = createTime * 1000;
   }
 
-  await env.STREAMS.put(key, JSON.stringify(file), { metadata });
+  await env.STREAMS.put(key, JSON.stringify(file));
 
   return Response.json(file, {
     status: 302,
