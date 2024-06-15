@@ -91,6 +91,10 @@ export async function onRequest(context) {
     },
   });
 
+  if (!folder) {
+    return new Response(null, { status: 404 });
+  }
+
   const { childrenIds, children } = folder;
   let id = childrenIds.find((id) => children[id].name === fileName);
 
