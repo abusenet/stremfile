@@ -1,5 +1,4 @@
 import { filenameParse } from "@ctrl/video-filename-parser";
-import { onRequest as fetchStream } from "./[videoID]/[folderName]/[fileName].js";
 
 /**
  * Gets stream data

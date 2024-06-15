@@ -24,7 +24,7 @@ export async function onRequest(context) {
 
   let { method, headers, url } = request;
 
-  if (method !== "GET") {
+  if (method === "OPTIONS") {
     return new Response(null, {
       status: 204,
     });

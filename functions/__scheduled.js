@@ -41,8 +41,11 @@ export async function scheduled(event, env, context) {
 
   const now = Date.now();
 
-  for (let {name: key, expiration, metadata} of keys) {
-    const [type, videoID, folderName] = key.split(":");
+  for (let {name: key, metadata} of keys) {
+    const segments = key.split(":");
+    const type = segments.shift();
+    const folderName = segments.pop();
+    const videoID = segments.join(":");
 
     const file = await env.STREAMS.get(key, { type: "json" });
     const fileName = file.name;
@@ -56,23 +59,17 @@ export async function scheduled(event, env, context) {
     // Get the link to the stream
     const url = new URL("https://stremio.com");
     url.pathname = `/stream/${type}/${videoID}/${folderName}/${fileName}`;
-    const request = new Request(url);
+    const request = new Request(url, {
+      method: "HEAD",
+      headers,
+    });
     const params = {
       type,
       videoID,
       folderName,
       fileName,
     }
-    let response = await fetchStream({ request, env, params });
-
-    const location = response.headers.get("Location");
-    const cookie = response.headers.get("Set-Cookie")?.split(";")[0];
-    headers.set("Cookie", cookie);
-
-    response = await fetch(location, {
-      method: "HEAD",
-      headers,
-    });
+    const response = await fetchStream({ request, env, params });
 
     if (response.ok) {
       file.lastModifed = now;
@@ -80,6 +77,8 @@ export async function scheduled(event, env, context) {
       await env.STREAMS.put(key, JSON.stringify(file), {
         metadata,
       });
+    } else {
+      console.error(`Failed to fetch ${key}`);
     }
   }
 }
