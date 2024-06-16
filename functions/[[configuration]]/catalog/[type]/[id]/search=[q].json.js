@@ -31,7 +31,16 @@ export async function imdb(query, filters = {}) {
   url.pathname += query[0].toLowerCase();
   url.pathname += "/" + encodeURIComponent(query) + ".json";
 
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    cf: {
+      cacheTtlByStatus: {
+        "200-299": 60 * 60, // 1 hour
+        "404": 1,
+        "500-599": 0,
+      },
+      cacheEverything: true,
+    },
+  });
   try  {
     const { d: results = [] } = await fetch(url).then((r) => r.json());
     return filter(results, (result) => {
