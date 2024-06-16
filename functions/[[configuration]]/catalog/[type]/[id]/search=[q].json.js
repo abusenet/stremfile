@@ -31,19 +31,26 @@ export async function imdb(query, filters = {}) {
   url.pathname += query[0].toLowerCase();
   url.pathname += "/" + encodeURIComponent(query) + ".json";
 
-  const { d: results = [] } = await fetch(url).then((r) => r.json());
-  return filter(results, (result) => {
-    for (const [key, filter] of Object.entries(filters)) {
-      let value = result[key] || "";
-      if (key === "qid") {
-        value = value.replace("tv", "");
+  const response = await fetch(url);
+  try  {
+    const { d: results = [] } = await fetch(url).then((r) => r.json());
+    return filter(results, (result) => {
+      for (const [key, filter] of Object.entries(filters)) {
+        let value = result[key] || "";
+        if (key === "qid") {
+          value = value.replace("tv", "");
+        }
+        if (value.toLowerCase() !== filter.toLowerCase()) {
+          return false;
+        }
       }
-      if (value.toLowerCase() !== filter.toLowerCase()) {
-        return false;
-      }
-    }
-    return true;
-  });
+      return true;
+    });
+  } catch (error) {
+    console.error(error);
+    console.error(await response.text());
+    return [];
+  }
 }
 
 export async function onRequest(context) {
