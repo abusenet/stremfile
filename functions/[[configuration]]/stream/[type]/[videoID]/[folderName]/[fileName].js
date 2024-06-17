@@ -92,6 +92,7 @@ export async function onRequest(context) {
   });
 
   if (!folder) {
+    await env.STREAMS.delete(key);
     return new Response(null, { status: 404 });
   }
 
